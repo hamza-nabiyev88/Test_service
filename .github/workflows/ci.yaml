@@ -49,14 +49,24 @@ jobs:
         with:
           node-version: '16'
 
+      - name: Install Chrome
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y google-chrome-stable
+          google-chrome --version
+
       - name: Install frontend dependencies
-        working-directory: ./frontend  
+        working-directory: ./frontend
         run: npm ci
 
       - name: Run e2e tests
-        working-directory: ./frontend  
-        run: npm run e2e
-
+        working-directory: ./frontend
+        run: |
+          npm install chromedriver@latest
+          npm run e2e -- --webdriver-update=false
+        env:
+          CHROME_BIN: /usr/bin/google-chrome
+          CHROMEDRIVER_PATH: ./node_modules/chromedriver/bin/chromedriver
   build-and-push:
     needs: test
     runs-on: ubuntu-latest
