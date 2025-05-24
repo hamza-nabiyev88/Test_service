@@ -49,14 +49,6 @@ jobs:
         with:
           node-version: '18'
 
-      - name: Update webdriver dependencies
-        working-directory: ./frontend
-        run: |
-          npm uninstall webdriver-manager
-          npm install webdriver-manager@latest
-          npx webdriver-manager clean
-          npx webdriver-manager update --versions.chrome=latest
-
       - name: Install frontend dependencies
         working-directory: ./frontend
         env:
@@ -64,11 +56,25 @@ jobs:
         run: |
           npm ci
 
+      - name: Update webdriver dependencies
+        working-directory: ./frontend
+        run: |
+          CHROME_VERSION=$(google-chrome --version | grep -oP '\d+\.\d+\.\d+')
+          echo "Chrome version: $CHROME_VERSION"
+          
+          CHROMEDRIVER_VERSION=$(curl -s "https://chromedriver.storage.googleapis.com/LATEST_RELEASE_${CHROME_VERSION%%.*}")
+          echo "ChromeDriver version: $CHROMEDRIVER_VERSION"
+
+          npm uninstall webdriver-manager
+          npm install webdriver-manager@latest
+          npx webdriver-manager clean
+          npx webdriver-manager update --versions.chrome=$CHROMEDRIVER_VERSION
+
       - name: Run e2e tests
         working-directory: ./frontend
         env:
           NODE_OPTIONS: --openssl-legacy-provider
-        run: npm run e2e
+        run: npm run e2e -- --headless
         
   build-and-push:
     needs: test
