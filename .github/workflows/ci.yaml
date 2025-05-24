@@ -68,9 +68,8 @@ jobs:
         working-directory: ./frontend
         env:
           NODE_OPTIONS: --openssl-legacy-provider
-          CHROME_BIN: /usr/bin/google-chrome
-          CHROMEDRIVER_PATH: ./node_modules/chromedriver/bin/chromedriver
         run: npm run e2e
+        
   build-and-push:
     needs: test
     runs-on: ubuntu-22.04
