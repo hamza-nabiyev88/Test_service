@@ -12,7 +12,7 @@ env:
 
 jobs:
   test:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     services:
       db:
         image: oscarfonts/h2:alpine
@@ -59,16 +59,10 @@ jobs:
       - name: Update webdriver dependencies
         working-directory: ./frontend
         run: |
-          CHROME_VERSION=$(google-chrome --version | grep -oP '\d+\.\d+\.\d+')
-          echo "Chrome version: $CHROME_VERSION"
-          
-          CHROMEDRIVER_VERSION=$(curl -s "https://chromedriver.storage.googleapis.com/LATEST_RELEASE_${CHROME_VERSION%%.*}")
-          echo "ChromeDriver version: $CHROMEDRIVER_VERSION"
-
-          npm uninstall webdriver-manager
-          npm install webdriver-manager@latest
+          npx chromedriver --version || true
+          rm -rf node_modules/protractor/node_modules/webdriver-manager/selenium
           npx webdriver-manager clean
-          npx webdriver-manager update --versions.chrome=$CHROMEDRIVER_VERSION
+          npx webdriver-manager update --versions.chrome latest --gecko false --standalone false
 
       - name: Run e2e tests
         working-directory: ./frontend
@@ -78,7 +72,7 @@ jobs:
         
   build-and-push:
     needs: test
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
