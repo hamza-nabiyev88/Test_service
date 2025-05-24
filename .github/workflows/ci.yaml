@@ -41,7 +41,7 @@ jobs:
           distribution: 'temurin'
 
       - name: Run backend integration tests
-        run: mvnw verify -DskipUnitTests=true
+        run: mvn test 
 
       - name: Set up Node.js 16
         uses: actions/setup-node@v3
