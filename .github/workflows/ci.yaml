@@ -55,11 +55,13 @@ jobs:
           sudo apt-get install -y google-chrome-stable
           google-chrome --version
 
-      - name: Clean webdriver cache
+      - name: Update webdriver dependencies
         working-directory: ./frontend
         run: |
-          rm -rf node_modules/protractor/node_modules/webdriver-manager/selenium
+          npm uninstall webdriver-manager
+          npm install webdriver-manager@latest
           npx webdriver-manager clean
+          npx webdriver-manager update --versions.chrome=latest
 
       - name: Install frontend dependencies
         working-directory: ./frontend
@@ -67,13 +69,13 @@ jobs:
           NODE_OPTIONS: --openssl-legacy-provider
         run: |
           npm ci
-          npx webdriver-manager update --standalone false --gecko false --chrome true
 
       - name: Run e2e tests
         working-directory: ./frontend
         env:
           NODE_OPTIONS: --openssl-legacy-provider
           CHROME_BIN: /usr/bin/google-chrome
+          CHROMEDRIVER_PATH: ./node_modules/chromedriver/bin/chromedriver
         run: npm run e2e
   build-and-push:
     needs: test
