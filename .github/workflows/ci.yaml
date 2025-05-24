@@ -34,25 +34,28 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Java 21
+      - name: Set up Java
         uses: actions/setup-java@v3
         with:
-          java-version: '21'
+          java-version: '16'  
           distribution: 'temurin'
 
-      - name: Run backend integration tests
-        run: mvn test 
+      - name: Run backend tests
+        working-directory: ./backend  
+        run: mvn test          
 
-      - name: Set up Node.js 16
+      - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
           node-version: '16'
 
       - name: Install frontend dependencies
-        run: npm ci  
+        working-directory: ./frontend  
+        run: npm ci
 
       - name: Run e2e tests
-        run: npm run e2e  
+        working-directory: ./frontend  
+        run: npm run e2e
 
   build-and-push:
     needs: test
