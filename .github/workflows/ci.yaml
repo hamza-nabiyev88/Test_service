@@ -2,7 +2,7 @@ name: CI/CD Pipeline
 
 on:
   push:
-    branches: [ "main", "master", "feature/devops"]
+    branches: [ "main", "master", "feature/devops" ]
   workflow_dispatch: {}
 
 env:
@@ -13,6 +13,7 @@ env:
 jobs:
   test:
     runs-on: ubuntu-latest
+
     services:
       db:
         image: oscarfonts/h2:alpine
@@ -37,12 +38,12 @@ jobs:
       - name: Set up Java
         uses: actions/setup-java@v3
         with:
-          java-version: '16'  
+          java-version: '16'
           distribution: 'temurin'
 
       - name: Run backend tests
-        working-directory: ./backend  
-        run: mvn test          
+        working-directory: ./backend
+        run: mvn test
 
       - name: Set up Node.js
         uses: actions/setup-node@v3
@@ -56,6 +57,14 @@ jobs:
         run: |
           npm ci
 
+      - name: Install specific ChromeDriver version 114.0.5735.90
+        run: |
+          wget https://chromedriver.storage.googleapis.com/114.0.5735.90/chromedriver_linux64.zip
+          unzip chromedriver_linux64.zip
+          chmod +x chromedriver
+          sudo mv chromedriver /usr/local/bin/chromedriver
+          chromedriver --version
+
       - name: Update webdriver dependencies
         working-directory: ./frontend
         run: |
@@ -64,17 +73,17 @@ jobs:
           npm uninstall webdriver-manager
           npm install webdriver-manager@latest
           npx webdriver-manager clean
-          npx webdriver-manager update --versions.chrome latest --gecko false --standalone false
 
       - name: Run e2e tests
         working-directory: ./frontend
         env:
           NODE_OPTIONS: --openssl-legacy-provider
-        run: npm run e2e 
-        
+        run: npm run e2e
+
   build-and-push:
     needs: test
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
 
