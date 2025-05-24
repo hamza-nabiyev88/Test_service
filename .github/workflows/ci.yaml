@@ -24,6 +24,7 @@ jobs:
           SPRING_DATASOURCE_URL: ${{ secrets.SPRING_DATASOURCE_URL }}
           SPRING_DATASOURCE_USERNAME: ${{ secrets.SPRING_DATASOURCE_USERNAME }}
           SPRING_DATASOURCE_PASSWORD: ${{ secrets.SPRING_DATASOURCE_PASSWORD }}
+          NODE_OPTIONS: --openssl-legacy-provider
         options: >-
           --health-cmd "curl -f http://localhost:8082/login.jsp || exit 1"
           --health-interval 10s
@@ -47,7 +48,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: '16'
+          node-version: '18'
 
       - name: Install Chrome
         run: |
@@ -57,13 +58,13 @@ jobs:
 
       - name: Install frontend dependencies
         working-directory: ./frontend
-        run: npm ci
+        run: |
+          npm ci
+          npx webdriver-manager update --standalone false --gecko false --chrome true
 
       - name: Run e2e tests
         working-directory: ./frontend
-        run: |
-          npm install chromedriver@latest
-          npm run e2e -- --webdriver-update=false
+        run: npm run e2e 
         env:
           CHROME_BIN: /usr/bin/google-chrome
           CHROMEDRIVER_PATH: ./node_modules/chromedriver/bin/chromedriver
