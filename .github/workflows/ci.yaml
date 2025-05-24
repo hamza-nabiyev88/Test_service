@@ -68,7 +68,7 @@ jobs:
         working-directory: ./frontend
         env:
           NODE_OPTIONS: --openssl-legacy-provider
-        run: npm run e2e -- --headless
+        run: npm run e2e 
         
   build-and-push:
     needs: test
