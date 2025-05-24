@@ -61,6 +61,8 @@ jobs:
         run: |
           npx chromedriver --version || true
           rm -rf node_modules/protractor/node_modules/webdriver-manager/selenium
+          npm uninstall webdriver-manager
+          npm install webdriver-manager@latest
           npx webdriver-manager clean
           npx webdriver-manager update --versions.chrome latest --gecko false --standalone false
 
