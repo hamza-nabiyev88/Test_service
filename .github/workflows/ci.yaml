@@ -41,9 +41,7 @@ jobs:
           distribution: 'temurin'
 
       - name: Run backend integration tests
-        run: |
-          cd backend
-          ./mvnw verify -DskipUnitTests=true
+        run: mvnw verify -DskipUnitTests=true
 
       - name: Set up Node.js 16
         uses: actions/setup-node@v3
@@ -51,14 +49,10 @@ jobs:
           node-version: '16'
 
       - name: Install frontend dependencies
-        run: |
-          cd frontend
-          npm ci  
+        run: npm ci  
 
       - name: Run e2e tests
-        run: |
-          cd frontend
-          npm run e2e  
+        run: npm run e2e  
 
   build-and-push:
     needs: test
