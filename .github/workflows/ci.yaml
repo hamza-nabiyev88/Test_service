@@ -74,15 +74,6 @@ jobs:
           sudo mv chromedriver /usr/local/bin/chromedriver
           chromedriver --version
 
-      - name: Update webdriver dependencies
-        working-directory: ./frontend
-        run: |
-          npx chromedriver --version || true
-          rm -rf node_modules/protractor/node_modules/webdriver-manager/selenium
-          npm uninstall webdriver-manager
-          npm install webdriver-manager@latest
-          npx webdriver-manager clean
-
       - name: Run e2e tests
         working-directory: ./frontend
         env:
