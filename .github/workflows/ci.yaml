@@ -67,8 +67,8 @@ jobs:
 
       - name: Проверка доступности backend API
         run: |
-          echo "Проверка http://localhost:8080/api/ping"
-          curl -i http://localhost:8080/api/ping || exit 1
+          echo "Проверка http://localhost:8080/api/products"
+          curl -i http://localhost:8080/api/products || exit 1
 
 
       - name: Set up Node.js
