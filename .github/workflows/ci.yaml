@@ -22,9 +22,6 @@ jobs:
           - "8082:8082"
         env:
           H2_OPTIONS: -tcp -tcpAllowOthers -tcpPort 9092 -web -webAllowOthers -webPort 8082 -ifNotExists
-          SPRING_DATASOURCE_URL: ${{ secrets.SPRING_DATASOURCE_URL }}
-          SPRING_DATASOURCE_USERNAME: ${{ secrets.SPRING_DATASOURCE_USERNAME }}
-          SPRING_DATASOURCE_PASSWORD: ${{ secrets.SPRING_DATASOURCE_PASSWORD }}
         options: >-
           --health-cmd "curl -f http://localhost:8082/login.jsp || exit 1"
           --health-interval 10s
@@ -45,12 +42,35 @@ jobs:
         working-directory: ./backend
         run: mvn test
 
+      - name: Build backend JAR
+        working-directory: ./backend
+        run: mvn package -DskipTests
+
+      - name: Run backend in background
+        working-directory: ./backend
+        run: |
+          nohup java -jar target/*.jar > ../backend.log 2>&1 &
+
+      - name: Wait for backend to become ready
+        run: |
+          for i in {1..20}; do
+            echo "Backend not ready (attempt $i)..."
+            if curl -sSf http://localhost:8080/actuator/health > /dev/null; then
+              echo " Backend is ready!"
+              exit 0
+            fi
+            sleep 3
+          done
+          echo "Backend failed to start in time. Dumping logs:"
+          cat backend.log || echo "No logs found"
+          exit 1
+
       - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
           node-version: '18'
 
-      - name: Install specific Google Chrome version 114.0.5735.90
+      - name: Install specific Google Chrome version 114
         run: |
           sudo rm -f /usr/bin/google-chrome || true
           wget https://storage.googleapis.com/chrome-for-testing-public/114.0.5735.90/linux64/chrome-linux64.zip
@@ -63,8 +83,7 @@ jobs:
         working-directory: ./frontend
         env:
           NODE_OPTIONS: --openssl-legacy-provider
-        run: |
-          npm ci
+        run: npm ci
 
       - name: Install specific ChromeDriver version 114.0.5735.90
         run: |
@@ -73,6 +92,15 @@ jobs:
           chmod +x chromedriver
           sudo mv chromedriver /usr/local/bin/chromedriver
           chromedriver --version
+
+      - name: Update webdriver dependencies
+        working-directory: ./frontend
+        run: |
+          npx chromedriver --version || true
+          rm -rf node_modules/protractor/node_modules/webdriver-manager/selenium
+          npm uninstall webdriver-manager
+          npm install webdriver-manager@latest
+          npx webdriver-manager clean
 
       - name: Run e2e tests
         working-directory: ./frontend
