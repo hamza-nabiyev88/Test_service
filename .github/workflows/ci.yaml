@@ -82,16 +82,31 @@ jobs:
         working-directory: ./frontend
         run: npm ci
 
-      - name: Setup testing environment
+      - name: Install specific Google Chrome version 114
         run: |
-          sudo apt-get update
-          sudo apt-get install -y libgbm-dev
-          wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
-          sudo apt install -y ./google-chrome-stable_current_amd64.deb
-          wget https://chromedriver.storage.googleapis.com/$(curl -s https://chromedriver.storage.googleapis.com/LATEST_RELEASE)/chromedriver_linux64.zip
+          sudo rm -f /usr/bin/google-chrome || true
+          wget https://storage.googleapis.com/chrome-for-testing-public/114.0.5735.90/linux64/chrome-linux64.zip
+          unzip chrome-linux64.zip
+          sudo mv chrome-linux64 /opt/chrome114
+          sudo ln -fs /opt/chrome114/chrome /usr/bin/google-chrome
+          google-chrome --version 
+
+      - name: Install specific ChromeDriver version 114.0.5735.90
+        run: |
+          wget https://chromedriver.storage.googleapis.com/114.0.5735.90/chromedriver_linux64.zip
           unzip chromedriver_linux64.zip
-          sudo mv chromedriver /usr/local/bin/
-          sudo chmod +x /usr/local/bin/chromedriver
+          chmod +x chromedriver
+          sudo mv chromedriver /usr/local/bin/chromedriver
+          chromedriver --version
+
+      - name: Update webdriver dependencies
+        working-directory: ./frontend
+        run: |
+          npx chromedriver --version || true
+          rm -rf node_modules/protractor/node_modules/webdriver-manager/selenium
+          npm uninstall webdriver-manager
+          npm install webdriver-manager@latest
+          npx webdriver-manager clean
 
       - name: Download backend JAR
         uses: actions/download-artifact@v4
