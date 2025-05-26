@@ -2,7 +2,7 @@ name: CI/CD Pipeline
 
 on:
   push:
-    branches: [ "main", "master", "feature/devops" ]
+    branches: [ "main", "feature/devops" ]
   workflow_dispatch: {}
 
 env:
@@ -11,22 +11,10 @@ env:
   FRONTEND_IMAGE_NAME: ${{ secrets.DOCKER_HUB_USERNAME }}/sausage-frontend
 
 jobs:
-  test:
+  build:
     runs-on: ubuntu-latest
-
-    services:
-      db:
-        image: oscarfonts/h2:alpine
-        ports:
-          - "9092:9092"
-          - "8082:8082"
-        env:
-          H2_OPTIONS: -tcp -tcpAllowOthers -tcpPort 9092 -web -webAllowOthers -webPort 8082 -ifNotExists
-        options: >-
-          --health-cmd "curl -f http://localhost:8082/login.jsp || exit 1"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
+    outputs:
+      backend-jar: ${{ steps.build-backend.outputs.jar-path }}
 
     steps:
       - name: Checkout repository
@@ -38,88 +26,100 @@ jobs:
           java-version: '16'
           distribution: 'temurin'
 
-      - name: Run backend tests
-        working-directory: ./backend
-        run: mvn test
-
       - name: Build backend JAR
-        working-directory: ./backend
-        run: mvn package -DskipTests
-
-      - name: Run backend in background
+        id: build-backend
         working-directory: ./backend
         run: |
-          nohup java -jar target/*.jar > ../backend.log 2>&1 &
+          mvn package -DskipTests
+          echo "jar-path=target/$(ls target/*.jar)" >> $GITHUB_OUTPUT
 
-      - name: Wait for backend to become ready
-        run: |
-          for i in {1..20}; do
-            echo "Backend not ready (attempt $i)..."
-            if curl -sSf http://localhost:8080/actuator/health > /dev/null; then
-              echo " Backend is ready!"
-              exit 0
-            fi
-            sleep 3
-          done
-          echo "Backend failed to start in time. Dumping logs:"
-          cat backend.log || echo "No logs found"
-          exit 1
-
-      - name: Проверка доступности backend API
-        run: |
-          echo "Проверка http://localhost:8080/api/products"
-          curl -i http://localhost:8080/api/products || exit 1
-
+      - name: Upload backend JAR
+        uses: actions/upload-artifact@v3
+        with:
+          name: backend-jar
+          path: ./backend/target/*.jar
 
       - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
           node-version: '18'
 
-      - name: Install specific Google Chrome version 114
-        run: |
-          sudo rm -f /usr/bin/google-chrome || true
-          wget https://storage.googleapis.com/chrome-for-testing-public/114.0.5735.90/linux64/chrome-linux64.zip
-          unzip chrome-linux64.zip
-          sudo mv chrome-linux64 /opt/chrome114
-          sudo ln -fs /opt/chrome114/chrome /usr/bin/google-chrome
-          google-chrome --version
-
-      - name: Install frontend dependencies
+      - name: Build frontend
         working-directory: ./frontend
-        env:
-          NODE_OPTIONS: --openssl-legacy-provider
-        run: npm ci
+        run: npm ci && npm run build
 
-      - name: Install specific ChromeDriver version 114.0.5735.90
-        run: |
-          wget https://chromedriver.storage.googleapis.com/114.0.5735.90/chromedriver_linux64.zip
-          unzip chromedriver_linux64.zip
-          chmod +x chromedriver
-          sudo mv chromedriver /usr/local/bin/chromedriver
-          chromedriver --version
+      - name: Upload frontend dist
+        uses: actions/upload-artifact@v3
+        with:
+          name: frontend-dist
+          path: ./frontend/dist
 
-      - name: Update webdriver dependencies
-        working-directory: ./frontend
-        run: |
-          npx chromedriver --version || true
-          rm -rf node_modules/protractor/node_modules/webdriver-manager/selenium
-          npm uninstall webdriver-manager
-          npm install webdriver-manager@latest
-          npx webdriver-manager clean
-
-      - name: Run e2e tests
-        working-directory: ./frontend
-        env:
-          NODE_OPTIONS: --openssl-legacy-provider
-        run: npm run e2e
-
-  build-and-push:
-    needs: test
+  test:
+    needs: build
     runs-on: ubuntu-latest
+    services:
+      db:
+        image: oscarfonts/h2:alpine
+        ports: ["9092:9092", "8082:8082"]
+        env:
+          H2_OPTIONS: -tcp -tcpAllowOthers -tcpPort 9092 -web -webAllowOthers -webPort 8082 -ifNotExists
+        options: >-
+          --health-cmd "curl -f http://localhost:8082/login.jsp || exit 1"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download backend JAR
+        uses: actions/download-artifact@v3
+        with:
+          name: backend-jar
+
+      - name: Start backend
+        run: |
+          nohup java -jar *.jar > backend.log 2>&1 &
+          echo $! > backend.pid
+
+      - name: Wait for backend
+        run: |
+          for i in {1..20}; do
+            if curl -sSf http://localhost:8080/api/products > /dev/null; then
+              echo "Backend is ready!"
+              exit 0
+            fi
+            sleep 3
+          done
+          cat backend.log || echo "No logs found"
+          exit 1
+
+      - name: Download frontend dist
+        uses: actions/download-artifact@v3
+        with:
+          name: frontend-dist
+
+      - name: Serve built frontend
+        run: |
+          npm install -g serve
+          serve -s ./frontend-dist &
+          sleep 3
+
+      - name: Run E2E tests
+        working-directory: ./frontend
+        run: npm run e2e
+
+      - name: Stop backend
+        if: always()
+        run: kill $(cat backend.pid) || true
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
       - name: Login to Docker Hub
         uses: docker/login-action@v2
@@ -127,16 +127,27 @@ jobs:
           username: ${{ secrets.DOCKER_HUB_USERNAME }}
           password: ${{ secrets.DOCKER_HUB_TOKEN }}
 
-      - name: Build and push backend
+      - name: Download backend JAR
+        uses: actions/download-artifact@v3
+        with:
+          name: backend-jar
+
+      - name: Build and push backend image
         uses: docker/build-push-action@v4
         with:
           context: ./backend
+          build-args: JAR_FILE=target/$(basename $(ls *.jar))
           push: true
           tags: |
             ${{ env.BACKEND_IMAGE_NAME }}:latest
             ${{ env.BACKEND_IMAGE_NAME }}:${{ github.sha }}
 
-      - name: Build and push frontend
+      - name: Download frontend dist
+        uses: actions/download-artifact@v3
+        with:
+          name: frontend-dist
+
+      - name: Build and push frontend image
         uses: docker/build-push-action@v4
         with:
           context: ./frontend
