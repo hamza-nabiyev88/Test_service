@@ -142,7 +142,7 @@ jobs:
 
       - name: Run E2E tests
         working-directory: ./frontend
-        run: npm run e2e
+        run: ng e2e --dev-server-target=""
 
       - name: Stop backend
         if: always()
