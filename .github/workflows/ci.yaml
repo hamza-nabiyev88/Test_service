@@ -140,6 +140,11 @@ jobs:
           npm install -g serve
           serve -s ./frontend-dist &
           sleep 3
+    
+      - name: Serve built frontend
+        run: |
+          npm install -g http-server
+          http-server ./frontend-dist -p 4200 --proxy http://localhost:8080 &  sleep 5 
 
       - name: Run E2E tests
         working-directory: ./frontend
