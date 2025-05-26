@@ -9,6 +9,7 @@ env:
   DOCKER_HUB_USERNAME: ${{ secrets.DOCKER_HUB_USERNAME }}
   BACKEND_IMAGE_NAME: ${{ secrets.DOCKER_HUB_USERNAME }}/sausage-backend
   FRONTEND_IMAGE_NAME: ${{ secrets.DOCKER_HUB_USERNAME }}/sausage-frontend
+  NODE_OPTIONS: --openssl-legacy-provider
 
 jobs:
   build:
@@ -39,10 +40,10 @@ jobs:
           name: backend-jar
           path: ./backend/target/*.jar
 
-      - name: Set up Node.js
+      - name: Set up Node.js 18
         uses: actions/setup-node@v4
         with:
-          node-version: '16'
+          node-version: '18.19.0'
 
       - name: Build frontend
         working-directory: ./frontend
@@ -73,25 +74,28 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Node.js
+      - name: Set up Node.js 18
         uses: actions/setup-node@v4
         with:
-          node-version: '16'
+          node-version: '18.19.0'
 
       - name: Install frontend dependencies
         working-directory: ./frontend
         run: npm ci
 
-      - name: Install specific Google Chrome version 114
+      - name: Install Angular CLI
+        run: npm install -g @angular/cli
+
+      - name: Install Chrome 114
         run: |
           sudo rm -f /usr/bin/google-chrome || true
           wget https://storage.googleapis.com/chrome-for-testing-public/114.0.5735.90/linux64/chrome-linux64.zip
           unzip chrome-linux64.zip
           sudo mv chrome-linux64 /opt/chrome114
           sudo ln -fs /opt/chrome114/chrome /usr/bin/google-chrome
-          google-chrome --version 
+          google-chrome --version
 
-      - name: Install specific ChromeDriver version 114.0.5735.90
+      - name: Install ChromeDriver 114
         run: |
           wget https://chromedriver.storage.googleapis.com/114.0.5735.90/chromedriver_linux64.zip
           unzip chromedriver_linux64.zip
@@ -134,18 +138,19 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: frontend-dist
-    
-      - name: Serve built frontend
+
+      - name: Serve built frontend on port 4200
         run: |
           npm install -g http-server
-          http-server ./frontend-dist -p 4200 --proxy http://localhost:8080 &  sleep 5 
-
-      - name: Install Angular CLI
-        run: npm install -g @angular/cli
+          http-server ./frontend-dist -p 4200 --proxy http://localhost:8080 &
+          sleep 5
 
       - name: Run E2E tests
         working-directory: ./frontend
+        env:
+          NODE_OPTIONS: --openssl-legacy-provider
         run: ng e2e --dev-server-target=""
+
 
       - name: Stop backend
         if: always()
