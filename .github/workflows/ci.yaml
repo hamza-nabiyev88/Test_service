@@ -140,6 +140,9 @@ jobs:
           npm install -g http-server
           http-server ./frontend-dist -p 4200 --proxy http://localhost:8080 &  sleep 5 
 
+      - name: Install Angular CLI
+        run: npm install -g @angular/cli
+
       - name: Run E2E tests
         working-directory: ./frontend
         run: ng e2e --dev-server-target=""
